@@ -18,15 +18,12 @@ const initiateOrder = catchAsync(async (req: Request, res: Response) => {
 
 const placeOrder = catchAsync(async (req: Request, res: Response) => {
   const { id } = req.params;
-  const result = await orderService.placeOrderWithPayment(
-    req.user.userId,
-    id as string,
-  );
+  const result = await orderService.confirmOrder(req.user.userId, id as string);
 
   sendResponse(res, {
     httpStatusCode: status.OK,
     success: true,
-    message: "Checkout session created successfully",
+    message: "Order confirmed successfully",
     data: result,
   });
 });

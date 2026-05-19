@@ -7,7 +7,6 @@ Niramoy Backend is a TypeScript and Express 5 REST API for an online medicine ma
 - **Custom JWT authentication** — access and refresh tokens issued as **HTTP-only cookies** (no Better Auth or external session store).
 - **Google sign-in** — `POST /api/v1/auth/google-login` using Google ID tokens (`google-auth-library`).
 - **Email via SendGrid** — OTP verification, password reset, and payment-related mail using **EJS** templates under `src/app/templates/`.
-- **Stripe Checkout** — order payment flow with **`POST /webhook`** for Stripe events (signature-verified raw body).
 - **Role-based access** for `CUSTOMER`, `SELLER`, and `ADMIN`.
 - Seller profile creation (role upgrade from customer to seller).
 - Category and manufacturer management (admin).
@@ -18,20 +17,19 @@ Niramoy Backend is a TypeScript and Express 5 REST API for an online medicine ma
 
 ## Tech stack
 
-| Area | Choice |
-|------|--------|
-| Runtime | Node.js 18+ |
-| Language | TypeScript |
-| HTTP | Express 5 |
-| Database | PostgreSQL |
-| ORM | Prisma |
-| Validation | Zod |
-| Auth | `jsonwebtoken`, cookies (`cookie-parser`) |
-| OAuth | `google-auth-library` |
-| Email | `@sendgrid/mail`, EJS |
-| Payments | Stripe (`stripe`) |
-| Uploads | Multer, Cloudinary |
-| Build | `tsup` |
+| Area       | Choice                                    |
+| ---------- | ----------------------------------------- |
+| Runtime    | Node.js 18+                               |
+| Language   | TypeScript                                |
+| HTTP       | Express 5                                 |
+| Database   | PostgreSQL                                |
+| ORM        | Prisma                                    |
+| Validation | Zod                                       |
+| Auth       | `jsonwebtoken`, cookies (`cookie-parser`) |
+| OAuth      | `google-auth-library`                     |
+| Email      | `@sendgrid/mail`, EJS                     |
+| Uploads    | Multer, Cloudinary                        |
+| Build      | `tsup`                                    |
 
 ## Core features
 
@@ -54,8 +52,7 @@ Niramoy Backend is a TypeScript and Express 5 REST API for an online medicine ma
 ### Commerce and payments
 
 - Public medicine browsing; cart subtotal handling; stock-aware order initiation.
-- **Order payment:** `POST /api/v1/order` creates an order, then `POST /api/v1/order/:id/place` creates a **Stripe Checkout Session** and returns a `paymentUrl` for the client to redirect the user.
-- **Webhooks:** Stripe calls `POST /webhook` on this server; the handler updates payment and order state and can send confirmation email with invoice data (see `src/app/module/payment/`).
+- **Order payment:** `POST /api/v1/order` creates an order, then `POST /api/v1/order/:id/place` confirm the order.
 - Seller order status progression; customer cancellation when allowed; reviews only for delivered lines.
 
 ## How auth and payments fit together
@@ -67,19 +64,6 @@ flowchart LR
     SetCookies --> Requests[API_requests_with_credentials]
     Requests --> CheckAuth[checkAuth_reads_accessToken_JWT]
   end
-```
-
-```mermaid
-sequenceDiagram
-  participant Client
-  participant API as Niramoy_API
-  participant Stripe
-  Client->>API: POST_api_v1_order
-  Client->>API: POST_api_v1_order_id_place
-  API->>Stripe: Create_Checkout_Session
-  Stripe-->>Client: Redirect_to_checkout_URL
-  Stripe->>API: POST_webhook
-  API->>API: Update_payment_and_order
 ```
 
 ## Project structure
@@ -116,7 +100,6 @@ Niramoy-Backend/
 │   │   │   ├── manufacturer/
 │   │   │   ├── medincine/
 │   │   │   ├── order/
-│   │   │   ├── payment/        # Stripe webhook + payment helpers (used with orders)
 │   │   │   ├── review/
 │   │   │   ├── seller/
 │   │   │   └── stats/
@@ -133,17 +116,12 @@ Niramoy-Backend/
 └── tsup.config.ts
 ```
 
-Note: the module folder is named `medincine` in the repository; the HTTP API path is `/api/v1/medicine`. Payment logic is wired through **order** routes and the root **`/webhook`** route, not a separate `/api/v1/payment` router.
-
 ## API base paths
 
-| Path | Purpose |
-|------|---------|
-| `GET /` | Simple health or welcome message |
-| `/api/v1/*` | Versioned application routes |
-| `POST /webhook` | **Stripe webhook** (must receive raw JSON; registered in Stripe Dashboard or Stripe CLI) |
-
-There is **no** Better Auth or `/api/auth` namespace.
+| Path        | Purpose                          |
+| ----------- | -------------------------------- |
+| `GET /`     | Simple health or welcome message |
+| `/api/v1/*` | Versioned application routes     |
 
 ## API modules summary
 
@@ -192,9 +170,6 @@ CLOUDINARY_CLOUD_NAME=your_cloud_name
 CLOUDINARY_API_KEY=your_api_key
 CLOUDINARY_API_SECRET=your_api_secret
 
-STRIPE_SECRET_KEY=sk_test_...
-STRIPE_WEBHOOK_SECRET=whsec_...
-
 ADMIN_EMAIL=admin@gmail.com
 ADMIN_PASSWORD==admin123
 ```
@@ -209,12 +184,6 @@ ADMIN_PASSWORD==admin123
 - Create OAuth 2.0 credentials in Google Cloud Console.
 - Use the same **Web client** ID (and secret if applicable) as configured for your frontend ID token flow; the backend verifies ID tokens against `GOOGLE_CLIENT_ID`.
 
-### Stripe
-
-- **`STRIPE_SECRET_KEY`** — Secret API key (test or live).
-- **`STRIPE_WEBHOOK_SECRET`** — Signing secret for the endpoint **`POST https://<your-host>/webhook`** (or the URL Stripe CLI forwards to when developing locally).
-- For local development, use the [Stripe CLI](https://docs.stripe.com/stripe-cli) to forward webhooks to `http://localhost:<PORT>/webhook`.
-
 ## Prerequisites
 
 - Node.js 18 or newer and npm
@@ -222,7 +191,6 @@ ADMIN_PASSWORD==admin123
 - [Cloudinary](https://cloudinary.com/) account for uploads
 - [SendGrid](https://sendgrid.com/) API key and verified sender
 - [Google Cloud](https://console.cloud.google.com/) OAuth client for Google sign-in
-- [Stripe](https://stripe.com/) account for payments and webhooks
 
 ## Local setup
 
@@ -256,12 +224,7 @@ Optional: push schema without a migration file:
 npm run push
 ```
 
-### 5. Stripe webhooks (when testing payments)
-
-- Install Stripe CLI and run `stripe listen --forward-to localhost:5000/webhook` (adjust host/port).
-- Put the CLI signing secret into `STRIPE_WEBHOOK_SECRET` while testing, or register a Dashboard webhook for a deployed URL.
-
-### 6. Start the development server
+### 5. Start the development server
 
 ```bash
 npm run dev
@@ -333,7 +296,7 @@ Uploads use Cloudinary via Multer.
 ## Suggested workflow for new developers
 
 1. Create a PostgreSQL database and set `DATABASE_URL`.
-2. Fill in all required `.env` variables (especially SendGrid, Google, Stripe, Cloudinary).
+2. Fill in all required `.env` variables (especially SendGrid, Google, Cloudinary).
 3. Run `npm install`, then `npm run generate`, then `npm run migrate`.
 4. Start `npm run dev` and optionally forward Stripe webhooks for payment tests.
 5. Use Postman or your frontend against `http://localhost:5000` with credentials enabled for cookie auth.

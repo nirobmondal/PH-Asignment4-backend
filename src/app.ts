@@ -9,7 +9,6 @@ import { envVars } from "./app/config/env";
 import { globalErrorHandler } from "./app/middleware/globalErrorHandler";
 import { notFound } from "./app/middleware/notFound";
 import { indexRoutes } from "./app/routes";
-import { PaymentController } from "./app/module/payment/payment.controller";
 import { orderService } from "./app/module/order/order.service";
 
 const app: Application = express();
@@ -17,12 +16,6 @@ app.set("query parser", (str: string) => qs.parse(str));
 
 app.set("view engine", "ejs");
 app.set("views", path.resolve(process.cwd(), `src/app/templates`));
-
-app.post(
-  "/webhook",
-  express.raw({ type: "application/json" }),
-  PaymentController.handleStripeWebhookEvent,
-);
 
 app.use(
   cors({

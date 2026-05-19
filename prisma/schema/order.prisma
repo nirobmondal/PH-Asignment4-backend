@@ -6,14 +6,14 @@ model Order {
 
   status        OrderStatus   @default(PENDING)
   paymentStatus PaymentStatus @default(PENDING)
+  paymentMethod PaymentMethod @default(COD)
 
   shippingName    String
   shippingPhone   String
   shippingAddress String
   shippingCity    String
 
-  note    String?
-  payment Payment?
+  note String?
 
   customer     User          @relation(fields: [customerId], references: [id], onDelete: Restrict)
   sellerOrders SellerOrder[]
